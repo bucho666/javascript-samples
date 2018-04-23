@@ -1,7 +1,13 @@
 // documentのキーダウンイベント
 document.onkeydown = (e) => {
-    addMessage(`pressed key is "${e.key}"[${e.keyCode}]`);
+    if (e.repeat) return false;
+    addMessage(`down key is "${e.key}"[${e.keyCode}]`);
 };
+
+// documentのキーアップ
+document.onkeyup = (e) => {
+    addMessage(`up key is "${e.key}"[${e.keyCode}]`);
+}
 
 // inputのキーダウンイベント
 document.getElementById("input_line").onkeydown = (e) => {
