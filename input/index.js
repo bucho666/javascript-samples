@@ -23,16 +23,20 @@ document.getElementById("input_line").onkeydown = (e) => {
     input_line.value = "";
 }
 
+document.getElementById("input_line").onkeyup = (e) => {
+    // Eventの伝搬を停止
+    event.stopPropagation();
+}
 // メッセージ追加
 function addMessage(message) {
-    // div要素作成
-    const div = document.createElement("div");
+    // p要素作成
+    const p = document.createElement("p");
     // div要素にテキスト追加
-    div["textContent"] = message;
+    div.textContent = message;
     // メッセージ要素取得
     const messages = document.getElementById("messages");
     // メッセージ要素にdiv要素を追加
-    messages.appendChild(div);
+    messages.appendChild(p);
     // 一番下にスクロール
     messages.scrollTop = messages.scrollHeight;
 }
