@@ -1,14 +1,18 @@
 # バージョン確認
 npm -v
 
-# モジュールのインストール(ローカル)
-npm install <モジュール名>
-
 # ローカルでインストールする前にpackage.jsonファイルを作成する必要がある。
 npm init
 # Enterキーを押していき、最後にyesを入力すればOK。
 # 面倒な時は以下でOK
 npm init -y
+
+# モジュールのインストール(ローカル)
+npm install <モジュール名>
+
+# --saveオプションをつけることでpackage.jsonに追記され、
+# npm installした際にインストールされるようになる。
+npm install <モジュール名> --save
 
 # モジュールのインストール(グローバル)
 npm install -g <モジュール名>
