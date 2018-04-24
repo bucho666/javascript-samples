@@ -31,11 +31,11 @@ document.getElementById("input_line").onkeyup = (e) => {
 function addMessage(message) {
     // p要素作成
     const p = document.createElement("p");
-    // div要素にテキスト追加
-    div.textContent = message;
+    // p要素にテキスト追加
+    p.textContent = message;
     // メッセージ要素取得
     const messages = document.getElementById("messages");
-    // メッセージ要素にdiv要素を追加
+    // メッセージ要素にp要素を追加
     messages.appendChild(p);
     // 一番下にスクロール
     messages.scrollTop = messages.scrollHeight;
