@@ -1,0 +1,19 @@
+* {
+  background-color: black;
+}
+
+p {
+  line-height: 2px;
+}
+
+#messages {
+  float: left;
+  width: 630px;
+  height: 100px;
+  padding: 5px;
+  font-family: courier;
+  font: silver;
+  color: silver;
+  font-size: 12px;
+  overflow-y: scroll;
+}
