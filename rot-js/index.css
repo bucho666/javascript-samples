@@ -1,9 +1,13 @@
 * {
-  background-color: black;
+  background-color: white;
 }
 
 p {
   line-height: 2px;
+}
+
+#main {
+  width: 630px;
 }
 
 #messages {
