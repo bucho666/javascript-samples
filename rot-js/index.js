@@ -70,9 +70,8 @@ class Map {
   openSpaceAtRandom() {
     const openSpaces = [];
     this.forEach((x, y, terrain)=>{
-      if (terrain.isWalkable) {
-        openSpaces.push(new Coordinate(x, y));
-      }
+      if (terrain.isWalkable === false) { continue; }
+      openSpaces.push(new Coordinate(x, y));
     });
     return openSpaces.randomChoice();
   }
@@ -111,20 +110,72 @@ const Direction = {
   SW: new Coordinate(-1,  1), NW: new Coordinate(-1, -1),
 };
 
-class Player extends Entity {
-  constructor(coordinate = new Coordinate()) {
-    super('@');
-    this.coordinate = coordinate; 
+class Wait {
+  constructor(interval) {
+    this._startTime = 0;
+    this._interval = interval;
   }
 
+  set interval(newInterval) {
+    this._interval = newInterval;
+  }
+
+  isOver(now) {
+    return now - this._startTime >= this._interval;
+  }
+
+  reset(now) {
+    this._startTime = now;
+  }
+}
+
+class ActiveEntity extends Entity {
+  constructor(symbol, color='silver') {
+    super(symbol, color);
+    this._wait = new Wait(0);
+    this._action = null;
+    ActiveEntity.list.push(this);
+  }
+
+  setAction(action, interval) {
+    this._action = action;
+    this._wait.interval = interval;
+  }
+
+  update(now) {
+    if (this._wait.isOver(now) === false) { return; }
+    this._action();
+    this._wait.reset(now);
+  }
+
+  static startAction() {
+    window.requestAnimationFrame((now)=>{ActiveEntity.tick(now)});
+  }
+
+  static tick(now) {
+    ActiveEntity.list.forEach((e)=>{ e.update(now); });
+    ActiveEntity.startAction();
+  }
+
+}
+ActiveEntity.prototype.list = [];
+
+class Mobile extends ActiveEntity {
+  constructor(symbol, color, coordinate = new Coordinate()) {
+    super(symbol, color);
+    this.coordinate = coordinate;
+  }
+
+  get x() { return this.coordinate.x; }
+  get y() { return this.coordinate.y; }
+
   render(display) {
-    super.render(this.coordinate.x, this.coordinate.y, display);
+    super.render(this.x, this.y, display);
   }
 }
 
 DirectionOfKey = {
-  'k': Direction.N, 'l': Direction.E, 'j': Direction.S, 'h': Direction.W,
-  'u': Direction.NE, 'n': Direction.SE, 'b': Direction.SW, 'y': Direction.NW
+  'w': Direction.N, 'd': Direction.E, 's': Direction.S, 'a': Direction.W,
 };
 
 class Controller {
@@ -147,24 +198,28 @@ class Controller {
   }
 }
 
-class FPS {
-  constructor(fps, f) {
-    this._f = f;
-    this._startTime = 0;
-    this._interval = 1000/fps;
+class Chaser {
+  constructor(chaser, target, map) {
+    this._chaser = chaser;
+    this._target = target;
+    this._map = map;
   }
 
-  start() {
-      window.requestAnimationFrame((timeStamp)=>{this.tick(timeStamp)});
-  }
-
-  tick(timeStamp) {
-    const progress = timeStamp - this._startTime;
-    if (progress > this._interval) {
-      this._f();
-      this._startTime = timeStamp;
+  action() {
+    const aster = new ROT.Path.AStar(
+      this._target.x,
+      this._target.y,
+      (x, y) => {
+        return this._map.isWalkable(new Coordinate(x, y))
+      });
+    const path = [];
+    aster.compute(this._chaser.x, this._chaser.y, (x, y)=>{
+      path.push(new Coordinate(x, y));
+    });
+    path.shift(); // 自身の位置を削除
+    if (path.length > 1) {
+      this._chaser.coordinate = path[0];
     }
-    window.requestAnimationFrame((timeStamp)=>{this.tick(timeStamp)});
   }
 }
 
@@ -172,12 +227,18 @@ class Game {
   constructor(screenID) {
     this.setupDisplay(screenID);
     this.generateMap();
-    this._player = new Player(this._map.openSpaceAtRandom());
+    this._player = new Mobile('@', 'silver', this._map.openSpaceAtRandom());
+    this._goblin = new Mobile('g', 'blue', this._map.openSpaceAtRandom());
     this._controller = new Controller();
+    this._player.setAction(()=>{
+      this.update();
+    }, 200);
+    const ai = new Chaser(this._goblin, this._player, this._map);
+    this._goblin.setAction(()=>{
+      ai.action();
+    }, 400);
     document.onkeydown = (e) => { this._controller.keyDown(e.key) };
     document.onkeyup = (e) => { this._controller.keyUp(e.key) };
-    const fps = new FPS(30, ()=>{this.update();});
-    fps.start();
   }
 
   update() {
@@ -198,6 +259,7 @@ class Game {
   render() {
     this._map.render(this._display);
     this._player.render(this._display);
+    this._goblin.render(this._display);
   }
 
   generateMap() {
