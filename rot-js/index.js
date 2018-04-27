@@ -11,16 +11,16 @@ Array.prototype.randomChoice = function() {
 
 // メッセージ追加
 function addMessage(message) {
-    // p要素作成
-    const p = document.createElement("p");
-    // p要素にテキスト追加
-    p.textContent = message;
-    // メッセージ要素取得
-    const messages = document.getElementById("messages");
-    // メッセージ要素にp要素を追加
-    messages.appendChild(p);
-    // 一番下にスクロール
-    messages.scrollTop = messages.scrollHeight;
+  // p要素作成
+  const p = document.createElement("p");
+  // p要素にテキスト追加
+  p.textContent = message;
+  // メッセージ要素取得
+  const messages = document.getElementById("messages");
+  // メッセージ要素にp要素を追加
+  messages.appendChild(p);
+  // 一番下にスクロール
+  messages.scrollTop = messages.scrollHeight;
 }
 
 class Coordinate {
@@ -173,7 +173,7 @@ class LevelMap {
   }
 
   openSpaceAtRandom() {
-    // TODO 
+    // TODO
     return this._terrain.openSpaceAtRandom();
   }
 }
@@ -299,13 +299,9 @@ class Game {
     this._map.putCharacterAtRandom(this._player);
     this._map.putCharacterAtRandom(this._goblin);
     this._controller = new Controller();
-    this._player.setAction(()=>{
-      this.update();
-    }, 200);
+    this._player.setAction(()=>{ this.update(); }, 200);
     const ai = new Chaser(this._goblin, this._player, this._map);
-    this._goblin.setAction(()=>{
-      ai.action();
-    }, 400);
+    this._goblin.setAction(()=>{ ai.action(); }, 400);
     document.onkeydown = (e) => { this._controller.keyDown(e.key) };
     document.onkeyup = (e) => { this._controller.keyUp(e.key) };
     ActiveEntity.startAction();
