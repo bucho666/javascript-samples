@@ -1,3 +1,14 @@
+class Random {
+  static number(min, max) {
+    const diff = (max - min) + 1;
+    return Math.floor(Math.random() * diff) + min;
+  }
+}
+
+Array.prototype.randomChoice = function() {
+  return this[Random.number(0, this.length)];
+}
+
 // メッセージ追加
 function addMessage(message) {
     // p要素作成
@@ -11,6 +22,27 @@ function addMessage(message) {
     // 一番下にスクロール
     messages.scrollTop = messages.scrollHeight;
 }
+
+class Coordinate {
+  constructor(x=0, y=0) {
+    this._x = x;
+    this._y = y;
+  }
+
+  get x() { return this._x; }
+  get y() { return this._y; }
+
+  plus(otherCoordinate) {
+    return new Coordinate(this.x + otherCoordinate.x, this.y + otherCoordinate.y);
+  }
+}
+
+const Direction = {
+  N : new Coordinate(0 , -1), E : new Coordinate(1 ,  0),
+  S : new Coordinate(0 ,  1), W : new Coordinate(-1,  0),
+  NE: new Coordinate(1 , -1), SE: new Coordinate(1 ,  1),
+  SW: new Coordinate(-1,  1), NW: new Coordinate(-1, -1),
+};
 
 class Entity {
   constructor(symbol, color='silver') {
@@ -38,18 +70,7 @@ const TerrainTable = {
   door: new Terrain('+', 'olive', true),
 }
 
-class Random {
-  static number(min, max) {
-    const diff = (max - min) + 1;
-    return Math.floor(Math.random() * diff) + min;
-  }
-}
-
-Array.prototype.randomChoice = function() {
-  return this[Random.number(0, this.length)];
-}
-
-class Map {
+class EntityMap {
   constructor(width, height) {
     this._map = new Array(height)
     for (let y = 0; y < height; y++) {
@@ -58,27 +79,20 @@ class Map {
   }
 
   render(display) {
-    this.forEach((x, y, terrain)=>{
-      terrain.render(x, y, display);
+    this.forEach((x, y, e)=>{
+      if (e) { e.render(x, y, display); }
     });
   }
 
-  isWalkable(coordinate) {
-    return this._map[coordinate.y][coordinate.x].isWalkable;
+  renderAt(x, y, display) {
+    this.apply(x, y, (e)=>{ e.render(x, y, display); });
   }
 
-  openSpaceAtRandom() {
-    const openSpaces = [];
-    this.forEach((x, y, terrain)=>{
-      if (terrain.isWalkable === false) { continue; }
-      openSpaces.push(new Coordinate(x, y));
-    });
-    return openSpaces.randomChoice();
+  set(x, y, e) {
+    this._map[y][x] = e;
   }
 
-  update(x, y, terrain) {
-    this._map[y][x] = terrain;
-  }
+  apply(x, y, f) { f(this._map[y][x]); }
 
   forEach(f) {
     for (let y = 0; y < this._map.length; y++) {
@@ -89,26 +103,80 @@ class Map {
   }
 }
 
-class Coordinate {
-  constructor(x=0, y=0) {
-    this._x = x;
-    this._y = y;
+class TerrainMap extends EntityMap {
+  constructor(width, height) {
+    super(width, height);
   }
 
-  get x() { return this._x; }
-  get y() { return this._y; }
+  isWalkable(coord) {
+    return this._map[coord.y][coord.x].isWalkable;
+  }
 
-  plus(otherCoordinate) {
-    return new Coordinate(this.x + otherCoordinate.x, this.y + otherCoordinate.y);
+  openSpaceAtRandom() {
+    const openSpaces = [];
+    this.forEach((x, y, terrain)=>{
+      if (terrain.isWalkable === false) { return; }
+      openSpaces.push(new Coordinate(x, y));
+    });
+    return openSpaces.randomChoice();
   }
 }
 
-const Direction = {
-  N : new Coordinate(0 , -1), E : new Coordinate(1 ,  0),
-  S : new Coordinate(0 ,  1), W : new Coordinate(-1,  0),
-  NE: new Coordinate(1 , -1), SE: new Coordinate(1 ,  1),
-  SW: new Coordinate(-1,  1), NW: new Coordinate(-1, -1),
-};
+class CharacterMap extends EntityMap {
+  constructor(width, height) {
+    super(width, height);
+  }
+
+  existsAt(coord) {
+    return this._map[coord.y][coord.x] !== undefined;
+  }
+
+  move(from, to) {
+    const c = this._map[from.y][from.x];
+    if (!c) { return; }
+    this._map[from.y][from.x] = undefined;
+    this._map[to.y][to.y] = c;
+  }
+}
+
+class LevelMap {
+  constructor(width, height) {
+    this._terrain = new TerrainMap(width, height);
+    this._characters = new CharacterMap(width, height);
+  }
+
+  render(display) {
+    this._terrain.render(display);
+    this._characters.render(display);
+  }
+
+  setTerrain(x, y, t) { this._terrain.set(x, y, t); }
+  setCharacter(x, y, c) { this._characters.set(x, y, c); }
+
+  existsCharacterAt(coord) {
+    return this._characters.existsAt(coord)
+  }
+
+  moveCharacter(from, to) {
+    this._characters.move(from, to);
+  }
+
+  isOpenSpace(coord) {
+    if (this._characters.existsAt(coord)) return false;
+    return this._terrain.isWalkable(coord);
+  }
+
+  putCharacterAtRandom(c) {
+    const coord = this.openSpaceAtRandom();
+    c.coord = c;
+    this._characters.set(c, coord);
+  }
+
+  openSpaceAtRandom() {
+    // TODO 
+    return this._terrain.openSpaceAtRandom();
+  }
+}
 
 class Wait {
   constructor(interval) {
@@ -156,18 +224,17 @@ class ActiveEntity extends Entity {
     ActiveEntity.list.forEach((e)=>{ e.update(now); });
     ActiveEntity.startAction();
   }
-
 }
-ActiveEntity.prototype.list = [];
+ActiveEntity.list = [];
 
 class Mobile extends ActiveEntity {
-  constructor(symbol, color, coordinate = new Coordinate()) {
+  constructor(symbol, color, coord = new Coordinate()) {
     super(symbol, color);
-    this.coordinate = coordinate;
+    this.coord = coord;
   }
 
-  get x() { return this.coordinate.x; }
-  get y() { return this.coordinate.y; }
+  get x() { return this.coord.x; }
+  get y() { return this.coord.y; }
 
   render(display) {
     super.render(this.x, this.y, display);
@@ -210,7 +277,7 @@ class Chaser {
       this._target.x,
       this._target.y,
       (x, y) => {
-        return this._map.isWalkable(new Coordinate(x, y))
+        return this._map.isOpenSpace(new Coordinate(x, y))
       });
     const path = [];
     aster.compute(this._chaser.x, this._chaser.y, (x, y)=>{
@@ -218,7 +285,7 @@ class Chaser {
     });
     path.shift(); // 自身の位置を削除
     if (path.length > 1) {
-      this._chaser.coordinate = path[0];
+      this._map.moveCharacter(this._chaser.coord, path[0]);
     }
   }
 }
@@ -227,8 +294,10 @@ class Game {
   constructor(screenID) {
     this.setupDisplay(screenID);
     this.generateMap();
-    this._player = new Mobile('@', 'silver', this._map.openSpaceAtRandom());
-    this._goblin = new Mobile('g', 'blue', this._map.openSpaceAtRandom());
+    this._player = new Mobile('@', 'silver');
+    this._goblin = new Mobile('g', 'blue');
+    this._map.putCharacterAtRandom(this._player);
+    this._map.putCharacterAtRandom(this._goblin);
     this._controller = new Controller();
     this._player.setAction(()=>{
       this.update();
@@ -239,6 +308,7 @@ class Game {
     }, 400);
     document.onkeydown = (e) => { this._controller.keyDown(e.key) };
     document.onkeyup = (e) => { this._controller.keyUp(e.key) };
+    ActiveEntity.startAction();
   }
 
   update() {
@@ -247,32 +317,27 @@ class Game {
         this.movePlayer(DirectionOfKey[key]);
       }
     }
-    this.render();
+    this._map.render(this._display);
   }
 
   movePlayer(direction) {
-      const newCoordinate = this._player.coordinate.plus(direction);
-      if (this._map.isWalkable(newCoordinate) == false) { return; }
-      this._player.coordinate = newCoordinate;
-  }
-
-  render() {
-    this._map.render(this._display);
-    this._player.render(this._display);
-    this._goblin.render(this._display);
+    const newCoordinate = this._player.coord.plus(direction);
+    if (this._map.isOpenSpace(newCoordinate) == false) { return; }
+    this._map.moveCharacter(this._player.coord, newCoordinate);
+    this._player.coord = newCoordinate;
   }
 
   generateMap() {
     const displayOption = this._display.getOptions();
     const [MAP_WIDTH, MAP_HEIGHT] = [displayOption.width, displayOption.height];
-    this._map = new Map(MAP_WIDTH, MAP_HEIGHT);
+    this._map = new LevelMap(MAP_WIDTH, MAP_HEIGHT);
     const digger = new ROT.Map.Digger(MAP_WIDTH, MAP_HEIGHT);
     digger.create((x, y, isWall)=>{
-      this._map.update(x, y, isWall ? TerrainTable.wall : TerrainTable.floor);
+      this._map.setTerrain(x, y, isWall ? TerrainTable.wall : TerrainTable.floor);
     });
     for (const room of digger.getRooms()) {
       room.getDoors((x, y)=>{
-        this._map.update(x, y, TerrainTable.door);
+        this._map.setTerrain(x, y, TerrainTable.door);
       });
     }
   }
