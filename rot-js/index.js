@@ -65,7 +65,7 @@ class Terrain extends Entity {
 }
 
 const TerrainTable = {
-  wall: new Terrain(' '),
+  wall: new Terrain('#'),
   floor: new Terrain('.', 'silver', true),
   door: new Terrain('+', 'olive', true),
 }
@@ -85,7 +85,12 @@ class EntityMap {
   }
 
   renderAt(x, y, display) {
-    this.apply(x, y, (e)=>{ e.render(x, y, display); });
+    this.apply(x, y, (e)=>{ if (e) { e.render(x, y, display); } });
+  }
+
+  isOutbound(coord) {
+    return (this._map[coord.y] === undefined ||
+            this._map[coord.y][coord.x] === undefined);
   }
 
   set(x, y, e) {
@@ -109,12 +114,13 @@ class TerrainMap extends EntityMap {
   }
 
   isWalkable(coord) {
+    if (this.isOutbound(coord)) { return false; }
     return this._map[coord.y][coord.x].isWalkable;
   }
 
   openSpaceAtRandom() {
     const openSpaces = [];
-    this.forEach((x, y, terrain)=>{
+    this.forEach((x, y, terrain)=> {
       if (terrain.isWalkable === false) { return; }
       openSpaces.push(new Coordinate(x, y));
     });
@@ -135,7 +141,8 @@ class CharacterMap extends EntityMap {
     const c = this._map[from.y][from.x];
     if (!c) { return; }
     this._map[from.y][from.x] = undefined;
-    this._map[to.y][to.y] = c;
+    this._map[to.y][to.x] = c;
+    c.coord = to;
   }
 }
 
@@ -150,6 +157,11 @@ class LevelMap {
     this._characters.render(display);
   }
 
+  renderAt(x, y, display) {
+    this._terrain.renderAt(x, y, display);
+    this._characters.renderAt(x, y, display);
+  }
+
   setTerrain(x, y, t) { this._terrain.set(x, y, t); }
   setCharacter(x, y, c) { this._characters.set(x, y, c); }
 
@@ -162,14 +174,35 @@ class LevelMap {
   }
 
   isOpenSpace(coord) {
-    if (this._characters.existsAt(coord)) return false;
+    if (this._terrain.isOutbound(coord)) { return false; }
+    if (this._characters.existsAt(coord)) { return false; }
     return this._terrain.isWalkable(coord);
   }
 
-  putCharacterAtRandom(c) {
+  setTerrain(x, y, t) { this._terrain.set(x, y, t); }
+  setCharacter(x, y, c) { this._characters.set(x, y, c); }
+
+  existsCharacterAt(coord) {
+    return this._characters.existsAt(coord)
+  }
+
+  moveCharacter(from, to) {
+    this._characters.move(from, to);
+  }
+
+  isOpenSpace(coord) {
+    if (this._characters.existsAt(coord)) { return false };
+    return this._terrain.isWalkable(coord);
+  }
+
+  isLightPassThrough(coord) {
+    return this._terrain.isWalkable(coord); // TODO
+  }
+
+  putCharacterAtRandom(ch) {
     const coord = this.openSpaceAtRandom();
-    c.coord = c;
-    this._characters.set(c, coord);
+    ch.coord = coord;
+    this._characters.set(coord.x, coord.y, ch);
   }
 
   openSpaceAtRandom() {
@@ -235,10 +268,6 @@ class Mobile extends ActiveEntity {
 
   get x() { return this.coord.x; }
   get y() { return this.coord.y; }
-
-  render(display) {
-    super.render(this.x, this.y, display);
-  }
 }
 
 DirectionOfKey = {
@@ -277,6 +306,7 @@ class Chaser {
       this._target.x,
       this._target.y,
       (x, y) => {
+        if (this._chaser.x === x && this._chaser.y === y) { return true; }
         return this._map.isOpenSpace(new Coordinate(x, y))
       });
     const path = [];
@@ -290,6 +320,26 @@ class Chaser {
   }
 }
 
+class Fov {
+  constructor(viewer, levelMap) {
+    this._levelMap = levelMap;
+    this._viewer = viewer;
+    this._fov = new ROT.FOV.PreciseShadowcasting((x, y)=>{
+      return this._levelMap.isLightPassThrough(new Coordinate(x, y));
+    });
+  }
+
+  render(display) {
+    this._fov.compute(
+      this._viewer.x,
+      this._viewer.y,
+      10,
+      (x, y, r, visibility)=> {
+        this._levelMap.renderAt(x, y, display);
+      });
+  }
+}
+
 class Game {
   constructor(screenID) {
     this.setupDisplay(screenID);
@@ -300,6 +350,7 @@ class Game {
     this._map.putCharacterAtRandom(this._goblin);
     this._controller = new Controller();
     this._player.setAction(()=>{ this.update(); }, 200);
+    this._fov = new Fov(this._player, this._map);
     const ai = new Chaser(this._goblin, this._player, this._map);
     this._goblin.setAction(()=>{ ai.action(); }, 400);
     document.onkeydown = (e) => { this._controller.keyDown(e.key) };
@@ -313,14 +364,14 @@ class Game {
         this.movePlayer(DirectionOfKey[key]);
       }
     }
-    this._map.render(this._display);
+    this._display.clear();
+    this._fov.render(this._display);
   }
 
   movePlayer(direction) {
     const newCoordinate = this._player.coord.plus(direction);
     if (this._map.isOpenSpace(newCoordinate) == false) { return; }
     this._map.moveCharacter(this._player.coord, newCoordinate);
-    this._player.coord = newCoordinate;
   }
 
   generateMap() {
