@@ -50,8 +50,11 @@ class Entity {
     this._color = color;
   }
 
-  render(x, y, display) {
-    display.draw(x, y, this._symbol, this._color);
+  get symbol() { return this._symbol; }
+  get color() { return this._color; }
+
+  render(x, y, display, color=this._color) {
+    display.draw(x, y, this._symbol, color);
   }
 }
 
@@ -65,9 +68,9 @@ class Terrain extends Entity {
 }
 
 const TerrainTable = {
-  wall: new Terrain('#'),
-  floor: new Terrain('.', 'silver', true),
-  door: new Terrain('+', 'olive', true),
+  wall: new Terrain('#', 'olive'),
+  floor: new Terrain('.', 'gray', true),
+  door: new Terrain('+', 'burlywood', true),
 }
 
 class EntityMap {
@@ -78,14 +81,18 @@ class EntityMap {
     }
   }
 
+  get size() {
+    return [this._map[0].length, this._map.length];
+  }
+
   render(display) {
     this.forEach((x, y, e)=>{
       if (e) { e.render(x, y, display); }
     });
   }
 
-  renderAt(x, y, display) {
-    this.apply(x, y, (e)=>{ if (e) { e.render(x, y, display); } });
+  renderAt(x, y, display, color=undefined) {
+    this.apply(x, y, (e)=>{ if (e) { e.render(x, y, display, color); } });
   }
 
   isOutbound(coord) {
@@ -95,6 +102,10 @@ class EntityMap {
 
   set(x, y, e) {
     this._map[y][x] = e;
+  }
+
+  get(x, y) {
+    return this._map[y][x];
   }
 
   apply(x, y, f) { f(this._map[y][x]); }
@@ -126,6 +137,10 @@ class TerrainMap extends EntityMap {
     });
     return openSpaces.randomChoice();
   }
+
+  renderAt(x, y, display) {
+    super.renderAt(x, y, display, this._map[y][x].symbol === '.' ? 'white' : undefined);
+  }
 }
 
 class CharacterMap extends EntityMap {
@@ -150,6 +165,10 @@ class LevelMap {
   constructor(width, height) {
     this._terrain = new TerrainMap(width, height);
     this._characters = new CharacterMap(width, height);
+  }
+
+  get size() {
+    return this._terrain.size;
   }
 
   render(display) {
@@ -181,6 +200,8 @@ class LevelMap {
 
   setTerrain(x, y, t) { this._terrain.set(x, y, t); }
   setCharacter(x, y, c) { this._characters.set(x, y, c); }
+
+  terrain(x, y) { return this._terrain.get(x, y); }
 
   existsCharacterAt(coord) {
     return this._characters.existsAt(coord)
@@ -320,22 +341,24 @@ class Chaser {
   }
 }
 
-class Fov {
+class View {
   constructor(viewer, levelMap) {
     this._levelMap = levelMap;
     this._viewer = viewer;
     this._fov = new ROT.FOV.PreciseShadowcasting((x, y)=>{
       return this._levelMap.isLightPassThrough(new Coordinate(x, y));
     });
+    const [h, w] = this._levelMap.size;
+    this._memory = new EntityMap(h, w);
   }
 
   render(display) {
+    this._memory.render(display);
     this._fov.compute(
-      this._viewer.x,
-      this._viewer.y,
-      10,
+      this._viewer.x, this._viewer.y, 10,
       (x, y, r, visibility)=> {
         this._levelMap.renderAt(x, y, display);
+        this._memory.set(x, y, this._levelMap.terrain(x, y));
       });
   }
 }
@@ -345,12 +368,12 @@ class Game {
     this.setupDisplay(screenID);
     this.generateMap();
     this._player = new Mobile('@', 'silver');
-    this._goblin = new Mobile('g', 'blue');
+    this._goblin = new Mobile('g', 'teal');
     this._map.putCharacterAtRandom(this._player);
     this._map.putCharacterAtRandom(this._goblin);
     this._controller = new Controller();
     this._player.setAction(()=>{ this.update(); }, 200);
-    this._fov = new Fov(this._player, this._map);
+    this._view = new View(this._player, this._map);
     const ai = new Chaser(this._goblin, this._player, this._map);
     this._goblin.setAction(()=>{ ai.action(); }, 400);
     document.onkeydown = (e) => { this._controller.keyDown(e.key) };
@@ -365,7 +388,7 @@ class Game {
       }
     }
     this._display.clear();
-    this._fov.render(this._display);
+    this._view.render(this._display);
   }
 
   movePlayer(direction) {
@@ -400,7 +423,7 @@ class Game {
     // bg -- default background color; valid CSS color string
     // spacing -- spacing adjustment coefficient; 1 = normal, <1 tighter, >1 looser
     // layout -- what layouting algorithm shall be used; "rect" or "hex"
-    this._display.setOptions({ width: 80, height: 24, bg: "white", });
+    this._display.setOptions({ width: 80, height: 24, bg: "black", fontFamily: "Courier New"});
     document.getElementById(screenID).appendChild(this._display.getContainer());
   }
 }
