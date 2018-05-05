@@ -129,13 +129,13 @@ class TerrainMap extends EntityMap {
     return this._map[coord.y][coord.x].isWalkable;
   }
 
-  openSpaceAtRandom() {
+  openSpaces() {
     const openSpaces = [];
     this.forEach((x, y, terrain)=> {
       if (terrain.isWalkable === false) { return; }
       openSpaces.push(new Coordinate(x, y));
     });
-    return openSpaces.randomChoice();
+    return openSpaces;
   }
 
   renderAt(x, y, display) {
@@ -227,8 +227,9 @@ class LevelMap {
   }
 
   openSpaceAtRandom() {
-    // TODO
-    return this._terrain.openSpaceAtRandom();
+    return this._terrain.openSpaces().filter((coord)=>{
+      return this.existsCharacterAt(coord) === false;
+    }).randomChoice();
   }
 }
 
@@ -368,17 +369,21 @@ class Game {
     this.setupDisplay(screenID);
     this.generateMap();
     this._player = new Mobile('@', 'silver');
-    this._goblin = new Mobile('g', 'teal');
     this._map.putCharacterAtRandom(this._player);
-    this._map.putCharacterAtRandom(this._goblin);
     this._controller = new Controller();
     this._player.setAction(()=>{ this.update(); }, 200);
     this._view = new View(this._player, this._map);
-    const ai = new Chaser(this._goblin, this._player, this._map);
-    this._goblin.setAction(()=>{ ai.action(); }, 400);
     document.onkeydown = (e) => { this._controller.keyDown(e.key) };
     document.onkeyup = (e) => { this._controller.keyUp(e.key) };
+    for (let c=0; c < 3; c++) { this._createChaiser(new Mobile('g', 'teal'), 400); }
+    for (let c=0; c < 2; c++) { this._createChaiser(new Mobile('s', 'green'), 300); }
     ActiveEntity.startAction();
+  }
+
+  _createChaiser(m, speed) {
+    this._map.putCharacterAtRandom(m);
+    const ai = new Chaser(m, this._player, this._map);
+    m.setAction(()=>{ ai.action(); }, speed);
   }
 
   update() {
