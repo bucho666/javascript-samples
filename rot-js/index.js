@@ -354,6 +354,7 @@ class View {
     this._levelMap = levelMap;
     this._viewer = viewer;
     this._fov = new ROT.FOV.PreciseShadowcasting((x, y)=>{
+      if (x === this._viewer.x && y === this._viewer.y) { return true; }
       return this._levelMap.isLightPassThrough(new Coordinate(x, y));
     });
     const [h, w] = this._levelMap.size;
