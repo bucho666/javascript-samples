@@ -59,18 +59,20 @@ class Entity {
 }
 
 class Terrain extends Entity {
-  constructor(symbol, color='silver', walkable=false) {
+  constructor(symbol, color='silver', walkable=false, lightPassThrough=false) {
     super(symbol, color);
     this._walkable = walkable;
+    this._lightPassThrough = lightPassThrough;
   }
 
   get isWalkable() { return this._walkable; }
+  get isLightPassThrough() { return this._lightPassThrough; }
 }
 
 const TerrainTable = {
   wall: new Terrain('#', 'olive'),
-  floor: new Terrain('.', 'gray', true),
-  door: new Terrain('+', 'burlywood', true),
+  floor: new Terrain('.', 'gray', true, true),
+  door: new Terrain('+', 'burlywood', true, false),
 }
 
 class EntityMap {
@@ -127,6 +129,11 @@ class TerrainMap extends EntityMap {
   isWalkable(coord) {
     if (this.isOutbound(coord)) { return false; }
     return this._map[coord.y][coord.x].isWalkable;
+  }
+
+  isLightPassThrough(coord) {
+    if (this.isOutbound(coord)) { return false; }
+    return this._map[coord.y][coord.x].isLightPassThrough;
   }
 
   openSpaces() {
@@ -217,7 +224,7 @@ class LevelMap {
   }
 
   isLightPassThrough(coord) {
-    return this._terrain.isWalkable(coord); // TODO
+    return this._terrain.isLightPassThrough(coord);
   }
 
   putCharacterAtRandom(ch) {
