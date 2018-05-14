@@ -10,12 +10,11 @@ class Coord {
   plus(coord) { return new Coord(this.x + coord.x, this.y + coord.y); }
 
   lineTo(to, f) {
-    let distance = to.distance(this),
+    const distance = to.distance(this),
       dx = distance.x, dy = distance.y,
       addX = dx / Math.abs(dx), addY = dy / Math.abs(dy),
-      cx = this.x, cy = this.y,
-      absDistanceX = Math.abs(dx), absDistanceY = Math.abs(dy),
-      error;
+      absDistanceX = Math.abs(dx), absDistanceY = Math.abs(dy);
+    let error, cx = this.x, cy = this.y;
     if (absDistanceX > absDistanceY) {
       error = absDistanceX / 2;
       while (cx != to.x) {
