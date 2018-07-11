@@ -1,0 +1,26 @@
+mochaをインストール
+$ npm install --save-dev mocha
+
+package.jsonに以下を追記(npm testコマンド対応)
+  "scripts": {
+    "test": "mocha"
+  },
+
+.eslintrcのenvにmochaを追記
+  env: {
+    mocha: true,
+  },
+
+testディレクトリを作成し配下にテストコードを記載
+  const assert = require("assert");
+  const sum = require("../sum");
+  it("adds 1 + 2 to equal 3", () => {
+    assert(sum(1, 2), 3);
+  });
+
+テスト実行
+$ npm test
+
+.vimrcにショートカットキーを定義
+nmap <C-p> :!npm test<CR>
+
