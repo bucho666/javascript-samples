@@ -1,16 +1,19 @@
 const readline = require("readline");
+
 class Terminal {
-  constructor() {
+  constructor(app) {
     this._console = readline.createInterface({
       input: process.stdin,
       output: process.stdout,
       terminal: false
     });
+    this._app = app;
   }
 
   async start() {
     process.stdin.setRawMode(true);
     readline.emitKeypressEvents(process.stdin);
+    this._app.initialize();
     await this.mainLoop();
   }
 
@@ -21,19 +24,10 @@ class Terminal {
           this._console.close();
           return;
         }
-        this.keyEvent(key);
+        this._app.keyEvent(key);
       });
     });
   }
-
-  keyEvent(key) {
-    if (key.name === "return") {
-      process.stdout.write("\x1b[2J");
-      process.stdout.write("\x1b[1;1H");
-    } else {
-      console.log(key);
-    }
-  }
 }
 
-new Terminal().start();
+module.exports = Terminal;
